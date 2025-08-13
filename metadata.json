@@ -1,0 +1,6 @@
+{
+  "name": "書籍貸出管理アプリ",
+  "description": "ISBNを使用して書籍の貸出、返却、在庫チェック、および書籍情報の管理を行うアプリケーションです。",
+  "requestFramePermissions": [],
+  "prompt": ""
+}

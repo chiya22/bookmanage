@@ -1,0 +1,217 @@
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { useBookData } from '../contexts/BookDataContext';
+import { fetchBookOrMagazineInfo } from '../services/bookApi';
+import type { Book } from '../types';
+import { ArrowPathIcon, TrashIcon, InformationCircleIcon } from '../components/icons';
+
+const Admin: React.FC = () => {
+  const [isbn, setIsbn] = useState('');
+  const [searchedBook, setSearchedBook] = useState<Book | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [searchMessage, setSearchMessage] = useState('');
+  const { books, addBook, removeBook, findBook, isLoading: isDataLoading } = useBookData();
+  const isbnInputRef = useRef<HTMLInputElement>(null);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  useEffect(() => {
+    isbnInputRef.current?.focus();
+  }, []);
+
+  const handleSearch = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setSearchMessage('');
+    setSearchedBook(null);
+    const codeToSearch = isbn.trim();
+    if (!codeToSearch) {
+        setIsLoading(false);
+        return;
+    }
+
+    try {
+      const existingBook = findBook(codeToSearch);
+      if (existingBook) {
+        setSearchMessage('この書籍・雑誌は既に登録されています。');
+        return;
+      }
+
+      const bookInfo = await fetchBookOrMagazineInfo(codeToSearch);
+      if (bookInfo) {
+        setSearchedBook(bookInfo);
+      } else {
+        setSearchMessage(`「${codeToSearch}」の書籍・雑誌情報が見つかりませんでした。コードを確認してください。`);
+      }
+    } finally {
+      setIsLoading(false);
+      setIsbn('');
+      isbnInputRef.current?.focus();
+    }
+  }, [isbn, findBook]);
+
+  const handleAddBook = useCallback(async () => {
+    if (searchedBook) {
+      await addBook(searchedBook);
+      setSearchMessage(`「${searchedBook.title}」を登録しました。`);
+      setSearchedBook(null);
+      isbnInputRef.current?.focus();
+    }
+  }, [searchedBook, addBook]);
+  
+  const handleRemoveBook = useCallback(async (book: Book) => {
+    await removeBook(book.isbn);
+    setSearchMessage(`「${book.title}」を削除しました。`);
+    setSearchedBook(null);
+  }, [removeBook]);
+
+  // Memoize sorted and paginated data
+  const sortedBooks = useMemo(() => 
+    [...books].sort((a, b) => a.title.localeCompare(b.title, 'ja')),
+    [books]
+  );
+  
+  const totalPages = useMemo(() => Math.ceil(sortedBooks.length / itemsPerPage), [sortedBooks.length]);
+
+  // Effect to adjust currentPage if it becomes invalid (e.g., after deleting books)
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+  
+  const paginatedBooks = useMemo(() => sortedBooks.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  ), [sortedBooks, currentPage]);
+
+  const PaginationControls = () => {
+    if (totalPages <= 1) return null;
+
+    return (
+      <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200">
+        <button
+          onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+          disabled={currentPage === 1}
+          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          前へ
+        </button>
+        <span className="text-sm text-gray-700">
+          全 {totalPages} ページ中 {currentPage} ページ目
+        </span>
+        <button
+          onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+          disabled={currentPage === totalPages}
+          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          次へ
+        </button>
+      </div>
+    );
+  };
+  
+  let messageClass = 'bg-yellow-100 text-yellow-800'; // Default to warning
+  if (searchMessage.includes('登録しました') || searchMessage.includes('削除しました')) {
+      messageClass = 'bg-green-100 text-green-800'; // Success
+  } else if (searchMessage.includes('登録されています')) {
+      messageClass = 'bg-blue-100 text-blue-800'; // Info
+  }
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h2 className="text-2xl font-bold text-yamori-dark">書籍管理</h2>
+        <p className="mt-1 text-gray-600">新しい書籍を登録したり、既存の書籍を削除します。</p>
+      </div>
+
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <h3 className="text-xl font-bold text-yamori-dark">ISBN/JANで検索して登録</h3>
+        <form onSubmit={handleSearch} className="flex gap-2 items-center mt-4">
+          <input
+            ref={isbnInputRef}
+            type="text"
+            value={isbn}
+            onChange={(e) => setIsbn(e.target.value)}
+            placeholder="ISBN/JANコードで検索"
+            className="flex-grow p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-yamori-accent focus:border-yamori-accent transition bg-white text-yamori-text"
+          />
+          <button
+            type="submit"
+            disabled={isLoading || !isbn}
+            className="px-6 py-3 bg-yamori-dark text-white font-semibold rounded-md shadow-sm hover:bg-black disabled:bg-gray-400 flex items-center gap-2 transition-colors"
+          >
+            {isLoading && <ArrowPathIcon className="animate-spin w-5 h-5" />}
+            検索
+          </button>
+        </form>
+
+        {searchMessage && (
+            <div className={`mt-4 p-3 rounded-md flex items-center gap-2 ${messageClass}`}>
+                <InformationCircleIcon className="w-5 h-5"/>
+                <span>{searchMessage}</span>
+            </div>
+        )}
+
+        {searchedBook && (
+          <div className="mt-6 border-t pt-6 animate-fade-in">
+            <div>
+              <h4 className="text-xl font-bold">{searchedBook.title}</h4>
+              <p className="text-gray-600">{searchedBook.author}</p>
+              <p className="text-sm text-gray-500">{searchedBook.publisher}</p>
+              <p className="text-sm text-gray-500 mt-1">ISBN/JAN: {searchedBook.isbn}</p>
+              <button
+                onClick={handleAddBook}
+                className="mt-4 px-4 py-2 bg-yamori-accent text-white font-semibold rounded-md shadow-sm hover:bg-yamori-accent-dark transition-colors"
+              >
+                この書籍を登録する
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+      
+      <div>
+        <h3 className="text-xl font-bold text-yamori-dark">登録済み書籍一覧</h3>
+        <div className="mt-4 bg-white rounded-lg shadow-md overflow-hidden">
+          <ul className="divide-y divide-gray-200">
+            {isDataLoading ? (
+               <p className="p-4 text-center text-gray-500">データを読み込み中...</p>
+            ) : paginatedBooks.length > 0 ? paginatedBooks.map(book => (
+              <li key={book.isbn} className="p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex-1">
+                  <div>
+                    <p className="font-bold text-yamori-dark">{book.title}</p>
+                    <p className="text-sm text-gray-600">{book.author}</p>
+                    <p className="text-xs text-gray-500">{book.publisher}</p>
+                    <p className="text-xs text-gray-400 mt-1">ISBN: {book.isbn}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 w-full sm:w-auto">
+                    <span className={`px-2 py-1 inline-block rounded-full text-xs font-semibold ${
+                        book.isRented ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                      }`}>
+                        {book.isRented ? '貸出中' : '在庫あり'}
+                    </span>
+                    <button
+                        onClick={() => handleRemoveBook(book)}
+                        className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-100 rounded-full transition-colors"
+                        aria-label="削除"
+                    >
+                        <TrashIcon className="w-5 h-5"/>
+                    </button>
+                </div>
+              </li>
+            )) : (
+              <p className="p-4 text-center text-gray-500">登録されている書籍はありません。</p>
+            )}
+          </ul>
+          <PaginationControls />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Admin;
