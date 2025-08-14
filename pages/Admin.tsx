@@ -7,6 +7,7 @@ import { ArrowPathIcon, TrashIcon, InformationCircleIcon } from '../components/i
 const Admin: React.FC = () => {
   const [isbn, setIsbn] = useState('');
   const [searchedBook, setSearchedBook] = useState<Book | null>(null);
+  const [manualBook, setManualBook] = useState<Partial<Book> | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [searchMessage, setSearchMessage] = useState('');
   const { books, addBook, removeBook, findBook, isLoading: isDataLoading } = useBookData();
@@ -19,12 +20,17 @@ const Admin: React.FC = () => {
   useEffect(() => {
     isbnInputRef.current?.focus();
   }, []);
+  
+  const resetSearchState = () => {
+      setSearchMessage('');
+      setSearchedBook(null);
+      setManualBook(null);
+  };
 
   const handleSearch = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setSearchMessage('');
-    setSearchedBook(null);
+    resetSearchState();
     const codeToSearch = isbn.trim();
     if (!codeToSearch) {
         setIsLoading(false);
@@ -42,7 +48,14 @@ const Admin: React.FC = () => {
       if (bookInfo) {
         setSearchedBook(bookInfo);
       } else {
-        setSearchMessage(`「${codeToSearch}」の書籍・雑誌情報が見つかりませんでした。コードを確認してください。`);
+        setSearchMessage(`「${codeToSearch}」の情報が見つかりませんでした。以下に情報を手動で入力して登録できます。`);
+        setManualBook({
+            isbn: codeToSearch,
+            title: '',
+            author: '',
+            publisher: '',
+            isRented: false
+        });
       }
     } finally {
       setIsLoading(false);
@@ -50,20 +63,24 @@ const Admin: React.FC = () => {
       isbnInputRef.current?.focus();
     }
   }, [isbn, findBook]);
+  
+  const handleManualInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!manualBook) return;
+      const { name, value } = e.target;
+      setManualBook(prev => prev ? { ...prev, [name]: value } : null);
+  }
 
-  const handleAddBook = useCallback(async () => {
-    if (searchedBook) {
-      await addBook(searchedBook);
-      setSearchMessage(`「${searchedBook.title}」を登録しました。`);
-      setSearchedBook(null);
-      isbnInputRef.current?.focus();
-    }
-  }, [searchedBook, addBook]);
+  const handleAddBook = useCallback(async (bookToAdd: Book) => {
+    await addBook(bookToAdd);
+    setSearchMessage(`「${bookToAdd.title}」を登録しました。`);
+    resetSearchState();
+    isbnInputRef.current?.focus();
+  }, [addBook]);
   
   const handleRemoveBook = useCallback(async (book: Book) => {
     await removeBook(book.isbn);
     setSearchMessage(`「${book.title}」を削除しました。`);
-    setSearchedBook(null);
+    resetSearchState();
   }, [removeBook]);
 
   // Memoize sorted and paginated data
@@ -162,13 +179,37 @@ const Admin: React.FC = () => {
               <p className="text-sm text-gray-500">{searchedBook.publisher}</p>
               <p className="text-sm text-gray-500 mt-1">ISBN/JAN: {searchedBook.isbn}</p>
               <button
-                onClick={handleAddBook}
+                onClick={() => handleAddBook(searchedBook)}
                 className="mt-4 px-4 py-2 bg-yamori-accent text-white font-semibold rounded-md shadow-sm hover:bg-yamori-accent-dark transition-colors"
               >
                 この書籍を登録する
               </button>
             </div>
           </div>
+        )}
+        
+        {manualBook && (
+            <div className="mt-6 border-t pt-6 animate-fade-in">
+                <h4 className="text-lg font-bold text-yamori-dark">書籍情報を手動で入力</h4>
+                <p className="text-sm text-gray-500 mt-1">ISBN/JAN: <span className="font-mono">{manualBook.isbn}</span></p>
+                <form onSubmit={(e) => { e.preventDefault(); handleAddBook(manualBook as Book);}} className="mt-4 space-y-4">
+                    <div>
+                        <label htmlFor="title" className="block text-sm font-medium text-gray-700">タイトル <span className="text-red-500">*</span></label>
+                        <input type="text" id="title" name="title" value={manualBook.title} onChange={handleManualInputChange} required className="mt-1 w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-yamori-accent focus:border-yamori-accent transition bg-gray-50"/>
+                    </div>
+                     <div>
+                        <label htmlFor="author" className="block text-sm font-medium text-gray-700">著者 / 号数</label>
+                        <input type="text" id="author" name="author" value={manualBook.author} onChange={handleManualInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-yamori-accent focus:border-yamori-accent transition bg-gray-50"/>
+                    </div>
+                     <div>
+                        <label htmlFor="publisher" className="block text-sm font-medium text-gray-700">出版社</label>
+                        <input type="text" id="publisher" name="publisher" value={manualBook.publisher} onChange={handleManualInputChange} className="mt-1 w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-yamori-accent focus:border-yamori-accent transition bg-gray-50"/>
+                    </div>
+                    <button type="submit" disabled={!manualBook.title} className="px-4 py-2 bg-yamori-accent text-white font-semibold rounded-md shadow-sm hover:bg-yamori-accent-dark disabled:bg-gray-300 transition-colors">
+                        手動で登録する
+                    </button>
+                </form>
+            </div>
         )}
       </div>
       
