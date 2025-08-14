@@ -11,29 +11,29 @@ import type { Book, RentalHistory, InventoryCheckHistory } from '../types';
 // バックエンドAPIのベースURL（例）
 const API_BASE_URL = 'http://localhost:10000/api';
 
-const STORAGE_KEYS = {
-  BOOKS: 'books',
-  RENTAL_HISTORIES: 'rentalHistories',
-  INVENTORY_CHECK_HISTORIES: 'inventoryCheckHistories',
-};
+// const STORAGE_KEYS = {
+//   BOOKS: 'books',
+//   RENTAL_HISTORIES: 'rentalHistories',
+//   INVENTORY_CHECK_HISTORIES: 'inventoryCheckHistories',
+// };
 
-// --- Generic Helper Functions ---
+// // --- Generic Helper Functions ---
 
-// ネットワークの遅延をシミュレート
-const simulateDelay = <T>(data: T): Promise<T> => {
-    return new Promise(resolve => {
-      setTimeout(() => resolve(data), 200);
-    });
-};
+// // ネットワークの遅延をシミュレート
+// const simulateDelay = <T>(data: T): Promise<T> => {
+//     return new Promise(resolve => {
+//       setTimeout(() => resolve(data), 200);
+//     });
+// };
 
-const readStorage = <T>(key: string, defaultValue: T): T => {
-    const saved = localStorage.getItem(key);
-    return saved ? JSON.parse(saved) : defaultValue;
-}
+// const readStorage = <T>(key: string, defaultValue: T): T => {
+//     const saved = localStorage.getItem(key);
+//     return saved ? JSON.parse(saved) : defaultValue;
+// }
 
-const writeStorage = <T>(key: string, data: T): void => {
-    localStorage.setItem(key, JSON.stringify(data));
-}
+// const writeStorage = <T>(key: string, data: T): void => {
+//     localStorage.setItem(key, JSON.stringify(data));
+// }
 
 // --- Books API ---
 
