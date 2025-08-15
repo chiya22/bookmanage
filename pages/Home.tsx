@@ -20,10 +20,10 @@ const Home: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      <div className="text-center">
+      {/* <div className="text-center">
         <h2 className="text-3xl font-extrabold text-yamori-dark sm:text-4xl">ようこそ</h2>
         <p className="mt-4 text-lg text-gray-600">書籍貸出管理システムで、蔵書を効率的に管理しましょう。</p>
-      </div>
+      </div> */}
 
       <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-1 gap-6">
         <FeatureCard 
