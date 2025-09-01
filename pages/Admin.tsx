@@ -13,8 +13,9 @@ const Admin: React.FC = () => {
   const { books, addBook, removeBook, findBook, isLoading: isDataLoading } = useBookData();
   const isbnInputRef = useRef<HTMLInputElement>(null);
 
-  // Pagination state
+  // Pagination and search state
   const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState('');
   const itemsPerPage = 10;
 
   useEffect(() => {
@@ -83,13 +84,21 @@ const Admin: React.FC = () => {
     resetSearchState();
   }, [removeBook]);
 
-  // Memoize sorted and paginated data
-  const sortedBooks = useMemo(() => 
-    [...books].sort((a, b) => a.title.localeCompare(b.title, 'ja')),
-    [books]
-  );
+  // Memoize filtered, sorted, and paginated data
+  const filteredAndSortedBooks = useMemo(() => {
+    return [...books]
+      .filter(book => 
+        book.title.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+      .sort((a, b) => a.title.localeCompare(b.title, 'ja'));
+  }, [books, searchTerm]);
   
-  const totalPages = useMemo(() => Math.ceil(sortedBooks.length / itemsPerPage), [sortedBooks.length]);
+  const totalPages = useMemo(() => Math.ceil(filteredAndSortedBooks.length / itemsPerPage), [filteredAndSortedBooks.length]);
+
+  // Effect to reset page number when search term changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   // Effect to adjust currentPage if it becomes invalid (e.g., after deleting books)
   useEffect(() => {
@@ -98,10 +107,10 @@ const Admin: React.FC = () => {
     }
   }, [totalPages, currentPage]);
   
-  const paginatedBooks = useMemo(() => sortedBooks.slice(
+  const paginatedBooks = useMemo(() => filteredAndSortedBooks.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
-  ), [sortedBooks, currentPage]);
+  ), [filteredAndSortedBooks, currentPage]);
 
   const PaginationControls = () => {
     if (totalPages <= 1) return null;
@@ -214,8 +223,23 @@ const Admin: React.FC = () => {
       </div>
       
       <div>
-        <h3 className="text-xl font-bold text-yamori-dark">登録済み書籍一覧</h3>
-        <div className="mt-4 bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+            <h3 className="text-xl font-bold text-yamori-dark">登録済み書籍一覧</h3>
+            <div className="relative w-full sm:w-auto">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg aria-hidden="true" className="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd"></path></svg>
+                </div>
+                <input
+                    type="text"
+                    placeholder="書籍名で検索..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full sm:w-64 p-2 pl-10 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-yamori-accent focus:border-yamori-accent transition bg-white text-yamori-text"
+                    aria-label="登録済み書籍を検索"
+                />
+            </div>
+        </div>
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <ul className="divide-y divide-gray-200">
             {isDataLoading ? (
                <p className="p-4 text-center text-gray-500">データを読み込み中...</p>
@@ -245,7 +269,9 @@ const Admin: React.FC = () => {
                 </div>
               </li>
             )) : (
-              <p className="p-4 text-center text-gray-500">登録されている書籍はありません。</p>
+              <p className="p-4 text-center text-gray-500">
+                {searchTerm ? `「${searchTerm}」に一致する書籍はありません。` : '登録されている書籍はありません。'}
+              </p>
             )}
           </ul>
           <PaginationControls />
